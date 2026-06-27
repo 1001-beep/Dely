@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dely – AI Study Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080F0B; --surface: #0E1A12; --card: #152019;
+  --border: #1E3325; --accent: #3DD68C; --accent-dim: rgba(61,214,140,0.10);
+  --accent-glow: rgba(61,214,140,0.22); --accent-mid: #2AB572;
+  --text: #E8F5EE; --muted: #5A7A65; --user-bubble: #1A5C38;
+  --user-border: #2A8A56; --font: 'Plus Jakarta Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(61,214,140,0.06) 0%, transparent 70%);
+  color: var(--text); font-family: var(--font); min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px;
+}
+
+/* LOADING */
+#loadingScreen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 99; }
+.spin { font-size: 34px; animation: spinA 1.4s linear infinite; }
+@keyframes spinA { to { transform: rotate(360deg); } }
+#loadingScreen p { color: var(--muted); font-size: 14px; }
+
+/* AUTH */
+#authScreen { width: 100%; max-width: 420px; display: none; }
+.auth-logo { text-align: center; margin-bottom: 28px; }
+.auth-logo .aicon { width: 56px; height: 56px; background: var(--accent-dim); border: 1.5px solid var(--accent); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 0 24px var(--accent-glow); margin-bottom: 10px; }
+.auth-logo h1 { font-size: 30px; font-weight: 800; background: linear-gradient(90deg, var(--accent), #A7F3D0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.auth-logo p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 26px 22px; }
+.auth-tabs { display: flex; margin-bottom: 22px; background: var(--card); border-radius: 10px; padding: 4px; gap: 4px; }
+.auth-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 7px; cursor: pointer; color: var(--muted); border: none; background: none; font-family: var(--font); transition: all 0.18s; }
+.auth-tab.active { background: var(--accent); color: #000; }
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; }
+.field input { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: var(--font); font-size: 14px; padding: 11px 13px; outline: none; transition: border-color 0.18s; }
+.field input:focus { border-color: rgba(61,214,140,0.45); box-shadow: 0 0 0 3px rgba(61,214,140,0.06); }
+.field input::placeholder { color: var(--muted); }
+.auth-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--accent), var(--accent-mid)); border: none; border-radius: 10px; color: #000; font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: opacity 0.18s; }
+.auth-btn:hover { opacity: 0.88; }
+.divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 12px; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.google-btn { width: 100%; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.18s; }
+.google-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+.auth-error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #FCA5A5; margin-top: 12px; display: none; }
+
+/* CHAT APP */
+#chatApp { display: none; width: 100%; max-width: 740px; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 0 2px; }
+.brand-icon { width: 42px; height: 42px; flex-shrink: 0; background: var(--accent-dim); border: 1.5px solid var(--accent); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 16px var(--accent-glow); }
+.brand-info h1 { font-size: 20px; font-weight: 800; background: linear-gradient(90deg, var(--accent), #A7F3D0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.brand-info p { font-size: 11px; color: var(--muted); font-weight: 500; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.status { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--accent); }
+.dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 6px var(--accent); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.user-chip { background: var(--accent-dim); border: 1px solid rgba(61,214,140,0.2); border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--accent); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signout-btn { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 12px; font-family: var(--font); padding: 5px 10px; cursor: pointer; transition: all 0.18s; }
+.signout-btn:hover { border-color: rgba(239,68,68,0.4); color: #FCA5A5; }
+
+.chat-window { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; display: flex; flex-direction: column; height: 72vh; min-height: 420px; max-height: 700px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(61,214,140,0.03); }
+.messages { flex: 1; overflow-y: auto; padding: 20px 20px 10px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+.messages::-webkit-scrollbar { width: 3px; }
+.messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.message { display: flex; gap: 10px; max-width: 88%; }
+.message.user { align-self: flex-end; flex-direction: row-reverse; }
+.message.ai { align-self: flex-start; }
+.avatar { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-top: 3px; }
+.message.ai .avatar { background: var(--accent-dim); border: 1px solid rgba(61,214,140,0.3); }
+.message.user .avatar { background: rgba(26,92,56,0.4); border: 1px solid rgba(42,138,86,0.3); }
+.bubble { padding: 11px 14px; border-radius: 13px; font-size: 14px; line-height: 1.68; word-break: break-word; }
+.message.ai .bubble { background: var(--card); border: 1px solid var(--border); border-top-left-radius: 4px; }
+.message.user .bubble { background: var(--user-bubble); border: 1px solid var(--user-border); border-top-right-radius: 4px; color: #d4f5e4; }
+.bubble strong { font-weight: 700; color: var(--accent); }
+.bubble code { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,0.35); color: #7EE8A2; padding: 2px 5px; border-radius: 4px; }
+.math-line { display: block; background: rgba(0,0,0,0.3); border-left: 3px solid var(--accent); padding: 7px 11px; margin: 7px 0; border-radius: 0 6px 6px 0; font-family: var(--mono); font-size: 13px; color: #B8FFC8; white-space: pre-wrap; }
+.bubble p { margin-bottom: 5px; } .bubble p:last-child { margin-bottom: 0; }
+.bubble ol, .bubble ul { padding-left: 18px; display: flex; flex-direction: column; gap: 3px; margin: 5px 0; }
+.sender-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--accent); opacity: 0.7; margin-bottom: 5px; }
+.file-preview { margin-bottom: 8px; }
+.file-preview img { max-width: 200px; max-height: 160px; border-radius: 8px; display: block; }
+.file-thumb { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); border-radius: 7px; padding: 7px 10px; font-size: 12px; color: var(--muted); }
+
+.typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
+.typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .5; animation: bop 1.2s ease-in-out infinite; }
+.typing span:nth-child(2){animation-delay:.18s} .typing span:nth-child(3){animation-delay:.36s}
+@keyframes bop { 0%,80%,100%{transform:translateY(0);opacity:.35} 40%{transform:translateY(-7px);opacity:1} }
+
+.quick-area { padding: 0 20px 12px; display: flex; flex-wrap: wrap; gap: 7px; }
+.qbtn { background: var(--accent-dim); border: 1px solid rgba(61,214,140,0.2); color: var(--accent); font-family: var(--font); font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 20px; cursor: pointer; transition: all 0.16s; }
+.qbtn:hover { background: rgba(61,214,140,0.18); border-color: var(--accent); }
+
+.input-bar { border-top: 1px solid var(--border); padding: 12px 14px; display: flex; gap: 8px; align-items: flex-end; background: var(--surface); }
+.input-wrap { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.attach-strip { display: none; flex-wrap: wrap; gap: 6px; }
+.attach-item { position: relative; display: inline-flex; align-items: center; gap: 5px; background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+.attach-item img { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; }
+.attach-remove { position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; background: #EF4444; border-radius: 50%; border: none; color: #fff; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+textarea { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: var(--font); font-size: 14px; padding: 11px 13px; resize: none; outline: none; min-height: 44px; max-height: 120px; line-height: 1.5; transition: border-color 0.18s; }
+textarea::placeholder { color: var(--muted); }
+textarea:focus { border-color: rgba(61,214,140,0.45); }
+.btn-row { display: flex; gap: 7px; align-self: flex-end; }
+.attach-btn { width: 44px; height: 44px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.17s; }
+.attach-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+.send-btn { width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent), var(--accent-mid)); border: none; border-radius: 10px; cursor: pointer; font-size: 17px; display: flex; align-items: center; justify-content: center; transition: all 0.17s; box-shadow: 0 4px 14px rgba(61,214,140,0.25); }
+.send-btn:hover { transform: scale(1.05); }
+.send-btn:active { transform: scale(0.96); }
+.send-btn:disabled { background: var(--border); box-shadow: none; cursor: not-allowed; transform: none; }
+#fileInput { display: none; }
+.footer-note { margin-top: 10px; font-size: 11px; color: var(--muted); text-align: center; }
+.footer-note span { color: var(--accent); font-weight: 600; }
+
+@media(max-width:480px){
+  .chat-window{height:78vh;border-radius:14px}
+  .messages{padding:14px 14px 6px}
+  .input-bar{padding:10px 12px}
+  .quick-area{padding:0 14px 10px}
+}
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="spin">✦</div>
+  <p>Starting Dely…</p>
+</div>
+
+<div id="authScreen">
+  <div class="auth-logo">
+    <div class="aicon">✦</div>
+    <h1>Dely</h1>
+    <p>Your personal AI study companion</p>
+  </div>
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Sign In</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+    <div id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••"></div>
+      <button class="auth-btn" onclick="emailLogin()">Sign In</button>
+    </div>
+    <div id="signupForm" style="display:none">
+      <div class="field"><label>Full Name</label><input type="text" id="signupName" placeholder="Your name"></div>
+      <div class="field"><label>Email</label><input type="email" id="signupEmail" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="signupPass" placeholder="Min 6 characters"></div>
+      <button class="auth-btn" onclick="emailSignup()">Create Account</button>
+    </div>
+    <div class="divider">or</div>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg width="16" height="16" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.8-7.2l-6.5 5C9.5 39.5 16.3 44 24 44z"/>
+        <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.5-2.6 4.6-4.8 6l6.2 5.2C40.7 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<div id="chatApp">
+  <div class="topbar">
+    <div class="brand-icon">✦</div>
+    <div class="brand-info"><h1>Dely</h1><p>AI Study Assistant</p></div>
+    <div class="topbar-right">
+      <div class="status"><div class="dot"></div>Live</div>
+      <div class="user-chip" id="userChip"></div>
+      <button class="signout-btn" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+  <div class="chat-window">
+    <div class="messages" id="messages">
+      <div class="message ai">
+        <div class="avatar">✦</div>
+        <div class="bubble">
+          <div class="sender-label">Dely</div>
+          <p>Hi! 👋 I'm <strong>Dely</strong>, your AI study assistant.</p>
+          <p>Ask me anything — maths, science, essays, history. You can also <strong>upload images or files</strong> 📎 and I'll read and answer questions about them!</p>
+        </div>
+      </div>
+    </div>
+    <div class="quick-area" id="quickArea">
+      <button class="qbtn" onclick="sendQuick('Explain photosynthesis simply')">🌿 Photosynthesis</button>
+      <button class="qbtn" onclick="sendQuick('Solve step by step: 3x - 7 = 14')">📐 Solve equation</button>
+      <button class="qbtn" onclick="sendQuick('What caused World War II?')">🌍 History</button>
+      <button class="qbtn" onclick="sendQuick('Help me write an essay introduction about climate change')">✍️ Essay help</button>
+    </div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <div class="attach-strip" id="attachStrip"></div>
+        <textarea id="userInput" placeholder="Ask Dely anything…" rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="attach-btn" onclick="document.getElementById('fileInput').click()" title="Attach">📎</button>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+      </div>
+      <input type="file" id="fileInput" accept="image/*,.pdf,.txt" multiple onchange="handleFiles(event)">
+    </div>
+  </div>
+  <div class="footer-note">Powered by <span>Dely AI</span> · Built for students</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCNbhdeGFOXfkFeA12haRihw7XvR7tHO2U",
+  authDomain: "dely-7b316.firebaseapp.com",
+  projectId: "dely-7b316",
+  storageBucket: "dely-7b316.firebasestorage.app",
+  messagingSenderId: "528625386316",
+  appId: "1:528625386316:web:2675825a8847b4c49e05e9"
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const gp = new GoogleAuthProvider();
+
+let user = null, attachedFiles = [], chatHistory = [], busy = false;
+
+const SYSTEM = `You are Dely, a warm and encouraging AI study assistant for students.
+- Explain concepts clearly with real-world examples
+- Solve problems STEP BY STEP so students learn the method
+- Help with maths, science, essays, history, literature, and all academics
+- When given images, describe what you see and answer questions thoroughly
+- When given PDF or text documents, read carefully and help the student understand
+- Use **bold** for key terms
+- For equations put key working on a line starting with "MATH:"
+- Use numbered lists for steps
+- Keep responses clear and concise
+- End every response with a warm follow-up offer`;
+
+onAuthStateChanged(auth, async (u) => {
+  document.getElementById('loadingScreen').style.display = 'none';
+  if (u) {
+    user = u;
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('chatApp').style.display = 'flex';
+    document.getElementById('userChip').textContent = u.displayName || u.email.split('@')[0];
+    await loadHistory();
+  } else {
+    user = null;
+    document.getElementById('authScreen').style.display = 'block';
+    document.getElementById('chatApp').style.display = 'none';
+    chatHistory = [];
+  }
+});
+
+// ── AUTH ──
+window.switchTab = (tab) => {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='signup')));
+  document.getElementById('loginForm').style.display = tab==='login'?'block':'none';
+  document.getElementById('signupForm').style.display = tab==='signup'?'block':'none';
+  hideErr();
+};
+window.emailLogin = async () => {
+  try { await signInWithEmailAndPassword(auth, g('loginEmail'), g('loginPass')); }
+  catch(e) { showErr(fe(e.code)); }
+};
+window.emailSignup = async () => {
+  const name = g('signupName');
+  if (!name) { showErr('Please enter your name.'); return; }
+  try {
+    const c = await createUserWithEmailAndPassword(auth, g('signupEmail'), g('signupPass'));
+    await updateProfile(c.user, { displayName: name });
+  } catch(e) { showErr(fe(e.code)); }
+};
+window.googleLogin = async () => {
+  try { await signInWithPopup(auth, gp); }
+  catch(e) { showErr(fe(e.code)); }
+};
+window.doSignOut = async () => {
+  await signOut(auth);
+  chatHistory = [];
+  document.getElementById('messages').innerHTML = `<div class="message ai"><div class="avatar">✦</div><div class="bubble"><div class="sender-label">Dely</div><p>Hi! 👋 I'm <strong>Dely</strong>. Sign in to start studying!</p></div></div>`;
+  document.getElementById('quickArea').style.display = 'flex';
+};
+function g(id) { return document.getElementById(id).value.trim(); }
+function showErr(m) { const e=document.getElementById('authError'); e.textContent=m; e.style.display='block'; }
+function hideErr() { document.getElementById('authError').style.display='none'; }
+function fe(c) {
+  return ({
+    'auth/invalid-email':'Invalid email address.',
+    'auth/user-not-found':'No account found with that email.',
+    'auth/wrong-password':'Incorrect password.',
+    'auth/invalid-credential':'Incorrect email or password.',
+    'auth/email-already-in-use':'An account already exists with this email.',
+    'auth/weak-password':'Password must be at least 6 characters.',
+    'auth/popup-closed-by-user':'Google sign-in was cancelled.',
+    'auth/popup-blocked':'Please allow popups for this site, then try again.'
+  }[c]) || 'Something went wrong. Please try again.';
+}
+
+// ── FIRESTORE ──
+async function loadHistory() {
+  if (!user) return;
+  const q = query(collection(db,'users',user.uid,'messages'), orderBy('createdAt','asc'));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    document.getElementById('messages').innerHTML = '';
+    document.getElementById('quickArea').style.display = 'none';
+  }
+  snap.forEach(doc => {
+    const d = doc.data();
+    if (d.role === 'user') { addDOM('user', `<p>${esc(d.text||'[file]')}</p>`); chatHistory.push({role:'user',content:d.text||''}); }
+    else { addDOM('ai', `<div class="sender-label">Dely</div>${fmt(d.text)}`); chatHistory.push({role:'assistant',content:d.text}); }
+  });
+}
+async function saveMsg(role, text) {
+  if (!user) return;
+  await addDoc(collection(db,'users',user.uid,'messages'), {role, text, createdAt: serverTimestamp()});
+}
+
+// ── FILE HANDLING ──
+window.handleFiles = (e) => {
+  Array.from(e.target.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      attachedFiles.push({file, base64: ev.target.result.split(',')[1], type: file.type, name: file.name, preview: ev.target.result});
+      renderStrip();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
+};
+function renderStrip() {
+  const s = document.getElementById('attachStrip');
+  if (!attachedFiles.length) { s.style.display='none'; return; }
+  s.style.display = 'flex';
+  s.innerHTML = attachedFiles.map((f,i) =>
+    `<div class="attach-item">${f.type.startsWith('image/')?`<img src="${f.preview}">`:'📄'}<span>${f.name.length>12?f.name.slice(0,12)+'…':f.name}</span><button class="attach-remove" onclick="removeFile(${i})">×</button></div>`
+  ).join('');
+}
+window.removeFile = (i) => { attachedFiles.splice(i,1); renderStrip(); };
+
+async function uploadFile(f) {
+  const r = ref(storage, `users/${user.uid}/files/${Date.now()}_${f.file.name}`);
+  await uploadBytes(r, f.file);
+  return getDownloadURL(r);
+}
+
+function buildContent(text) {
+  if (!attachedFiles.length) return text;
+  const content = [];
+  attachedFiles.forEach(f => {
+    if (f.type.startsWith('image/')) content.push({type:'image',source:{type:'base64',media_type:f.type,data:f.base64}});
+    else content.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:f.base64}});
+  });
+  content.push({type:'text', text: text||'Please read and help me with this.'});
+  return content;
+}
+
+// ── SEND MESSAGE ──
+window.sendMessage = async () => {
+  if (busy) return;
+  const inp = document.getElementById('userInput');
+  const text = inp.value.trim();
+  if (!text && !attachedFiles.length) return;
+  inp.value = ''; inp.style.height = 'auto';
+  document.getElementById('quickArea').style.display = 'none';
+
+  let bHtml = '';
+  attachedFiles.forEach(f => {
+    bHtml += f.type.startsWith('image/')
+      ? `<div class="file-preview"><img src="${f.preview}"></div>`
+      : `<div class="file-preview"><div class="file-thumb">📄 ${f.name}</div></div>`;
+  });
+  if (text) bHtml += `<p>${esc(text)}</p>`;
+  addDOM('user', bHtml);
+
+  const userContent = buildContent(text);
+  chatHistory.push({role:'user', content: userContent});
+  await saveMsg('user', text || '[file uploaded]');
+
+  if (user) await Promise.all(attachedFiles.map(uploadFile)).catch(()=>{});
+  attachedFiles = []; renderStrip();
+
+  busy = true;
+  document.getElementById('sendBtn').disabled = true;
+  showTyping();
+
+  try {
+    // Call our secure /api/chat proxy instead of Anthropic directly
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({system: SYSTEM, messages: chatHistory})
+    });
+    const data = await res.json();
+    const reply = data.content?.map(b=>b.text||'').join('') || "I couldn't respond. Please try again.";
+    chatHistory.push({role:'assistant', content: reply});
+    await saveMsg('assistant', reply);
+    removeTyping();
+    addDOM('ai', `<div class="sender-label">Dely</div>${fmt(reply)}`);
+  } catch {
+    removeTyping();
+    addDOM('ai', '<p>⚠️ Connection issue. Please try again.</p>');
+  }
+
+  busy = false;
+  document.getElementById('sendBtn').disabled = false;
+  inp.focus();
+};
+
+window.sendQuick = (t) => { document.getElementById('userInput').value=t; document.getElementById('quickArea').style.display='none'; sendMessage(); };
+window.handleKey = (e) => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} };
+window.autoResize = (el) => { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; };
+
+function addDOM(role, html) {
+  const w = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = `message ${role}`;
+  d.innerHTML = `<div class="avatar">${role==='user'?'🧑‍🎓':'✦'}</div><div class="bubble">${html}</div>`;
+  w.appendChild(d); w.scrollTop = w.scrollHeight;
+}
+function showTyping() {
+  const w = document.getElementById('messages');
+  const d = document.createElement('div'); d.className='message ai'; d.id='typing';
+  d.innerHTML='<div class="avatar">✦</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  w.appendChild(d); w.scrollTop = w.scrollHeight;
+}
+function removeTyping() { const t=document.getElementById('typing'); if(t)t.remove(); }
+function fmt(text) {
+  text = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  text = text.replace(/`([^`]+)`/g,'<code>$1</code>');
+  text = text.replace(/^MATH:\s*(.+)$/gm,'<span class="math-line">$1</span>');
+  text = text.replace(/^(\d+)\.\s+(.+)$/gm,'<li>$2</li>');
+  text = text.replace(/^[-•*]\s+(.+)$/gm,'<li>$1</li>');
+  return text.split('\n').map(l => {
+    l=l.trim(); if(!l)return'';
+    if(l.startsWith('<li>')||l.startsWith('<span class="math-line'))return l;
+    return `<p>${l}</p>`;
+  }).join('');
+}
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
